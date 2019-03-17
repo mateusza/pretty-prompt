@@ -18,6 +18,7 @@ if [[ "$TERM" == "xterm" && "$SHELL" == "/bin/bash" ]] ; then
 		centos)		colors=(214 018	112 255 090 255) ;;
 		fedora)		colors=(025 244 255 255 027 255) ;;
 		Linux)		colors=(220 243 220 243 220 255) ;;
+		gentoo)		colors=(104 189 146 254 104 254) ;;
 		*)		colors=(227 221 215 209 203 197) ;;
 	esac
 
