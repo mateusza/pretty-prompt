@@ -1,12 +1,12 @@
 #!/bin/bash
 
-if [[ "$TERM" == "xterm" && "$SHELL" == "/bin/bash" ]] ; then
+if [[ -n "PS1" && "x${TERM:0:5}" == "xxterm" && -n "$BASH_VERSION" ]] ; then
 
 	if [[ -n "$1" ]]; then
 		os_family="$1"
 	else
 		if [[ -e /etc/os-release ]]; then
-			os_family="$( sed -ne '/^ID=/s/^ID="\?\([^"]*\)"\?$/\1/p' /etc/os-release )"
+			os_family="$( . /etc/os-release; echo "$ID" )"
 		else
 			os_family="$( uname -a )"
 		fi
