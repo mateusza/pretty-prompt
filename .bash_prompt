@@ -1,0 +1,164 @@
+#!/bin/bash
+
+PROMPT_COMMAND=__prompt_command
+
+__append_prompt_module () {
+    local name="$1"
+    local value="$2"
+    local color0='\[\e['"$3"'m\]'
+    local color1='\[\e['"$4"'m\]'
+    local color2='\[\e['"$5"'m\]'
+    local reset='\[\e[m\]'
+
+    PS1+="${color0}[${reset}"
+    PS1+="${color1}${name}:${reset} "
+    PS1+="${color2}${value}${reset}"
+    PS1+="${color0}]${reset} "
+
+}
+
+# git routines
+
+__git_basepath () {
+    local MAX_DEPTH=128
+    local i
+    local path="."
+    for (( i=0; i<MAX_DEPTH; i++ ))
+    do
+        if [[ -e "$path/.git" ]]; then
+            echo "$path/.git"
+            return 0
+        fi
+        if [[ "$path" -ef / ]]; then
+            break
+        fi
+        path+="/.."
+    done
+
+    return 111 # MAX_DEPTH reached
+}
+
+__git_current_gitdir () {
+    local git_base
+    local f1 f2
+
+    if ! git_base="$(__git_basepath)"; then
+        return 1
+    fi
+
+    if [[ -f "$git_base" ]]; then
+        # .git is a file => we are in a worktree
+        read -r f1 f2 < "$git_base"
+        if [[ "$f1" != "gitdir:" ]]; then
+            echo "unknown meaning of .git: $f1 $f2"
+            return 123
+        fi
+        git_base="$f2"
+     fi
+
+     if ! [[ -d "$git_base" ]]; then
+         echo "Unknown type of .git file"
+         return 123
+     fi
+
+     if [[ -f "$git_base/config" ]] || [[ -f "$git_base/commondir" ]]; then
+         echo "$git_base"
+         return
+     fi
+
+     echo "Unknown type of .gir file"
+     return 127
+}
+
+__git_current_HEAD () {
+    local git_dir
+    
+    if ! git_dir="$(__git_current_gitdir)"; then
+        return 111
+    fi
+
+    # we are in a regular repo
+    read -r h1 h2 < "$git_dir/HEAD"
+    if [[ "$h1" == "ref:" ]]; then
+        branch="${h2#refs/heads/}"
+        echo "$branch"
+        return
+    fi
+    if [[ "$h1" =~ ^[0-9a-f]{40}$ ]]; then
+        echo "det ${h1:0:10}"
+        return
+    fi
+    echo "? $h1 $h2"
+}
+
+__git_append_prompt () {
+    local git_info
+
+    if ! __git_basepath > /dev/null; then
+        return
+    fi
+
+    git_info="$(__git_current_HEAD)"
+
+    __append_prompt_module git "$git_info" "1;38;2;62;44;0" "1;38;2;241;80;47" "1;38;5;231"
+}
+
+__exitcodes_append_prompt () {
+    if [[ "$#" -eq 0 ]]; then
+        return
+    fi
+
+    if [[ "$#" -eq 1 ]]; then
+        if [[ "$1" -eq 0 ]]; then
+            return
+        fi
+        __append_prompt_module "exit" "${1}" "1;38;2;90;90;90" "1;38;2;130;130;130" "1;4;38;2;240;80;40"
+        return
+    fi
+
+    __append_prompt_module "exits" "${*}" "1;38;2;90;90;90" "1;38;2;130;130;130" "1;38;2;240;80;40"
+}
+
+__python_venv_append_prompt () {
+    local venv=''
+
+    if [[ -n "$VIRTUAL_ENV_PROMPT" ]]; then
+        venv="${VIRTUAL_ENV_PROMPT:1:(-2)}"
+    elif [[ -n "$VIRTUAL_ENV" ]]; then
+        venv="${VIRTUAL_ENV##*/}"
+    fi
+    
+    if [[ -z "$venv" ]]; then
+        return
+    fi
+
+    __append_prompt_module "py" "$venv" "1;38;5;231" "1;38;2;75;139;190" "1;38;2;255;212;59"
+}
+
+__append_std_prompt () {
+    local c1="1;38;5;208"
+    local c2="1;38;5;231"
+    local c3="1;38;5;145"
+    local c4="1;38;5;166"
+    local reset='\[\e[m\]'
+
+    local color1='\[\e['"$c1"'m\]'
+    local color2='\[\e['"$c2"'m\]'
+    local color3='\[\e['"$c3"'m\]'
+    local color4='\[\e['"$c4"'m\]'
+
+    PS1+="${color1}\u${reset}"
+    PS1+="${color2}@${reset}"
+    PS1+="${color3}\h${reset}"
+    PS1+="${color2}:${reset}"
+    PS1+="${color4}\w${reset}\n\$ "
+}
+
+__prompt_command () {
+    local PIPES=("${PIPESTATUS[@]}")
+    PS1=""
+    __exitcodes_append_prompt "${PIPES[@]}"
+    __python_venv_append_prompt
+    __git_append_prompt
+    __append_std_prompt
+}
