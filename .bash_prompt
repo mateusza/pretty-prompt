@@ -135,6 +135,46 @@ __python_venv_append_prompt () {
     __append_prompt_module "py" "$venv" "1;38;5;231" "1;38;2;75;139;190" "1;38;2;255;212;59"
 }
 
+__jobs_append_prompt () {
+    local children
+
+    readarray -t -d " " children < "/proc/$$/task/$$/children"
+
+    for child in "${children[@]}"
+    do
+        __child_append_prompt "$child"
+
+    done
+}
+
+__child_append_prompt () {
+    local pid="$1"
+    local name
+    local state
+    local k v
+
+    while read -r k v
+    do
+        case "$k" in
+            "Name:") name="$v" ;;
+            "State:") state="${v:0:1}" ;;
+        esac
+    done < "/proc/$pid/status"
+
+    local c_R="1;38;5;119;48;5;22"
+    local c_S="1;38;5;222;48;5;202"
+    local c_T="1;38;5;231;48;5;160"
+    local reset='\[\e[m\]'
+    local c_current
+
+    declare -n c_current
+    c_current="c_$state"
+
+    local color0='\[\e['"${c_current}"'m\]'
+
+    PS1+="${color0} $pid $name ${reset} "
+}
+
 __append_std_prompt () {
     local c1="1;38;5;208"
     local c2="1;38;5;231"
@@ -156,9 +196,12 @@ __append_std_prompt () {
 
 __prompt_command () {
     local PIPES=("${PIPESTATUS[@]}")
+    local children
     PS1=""
     __exitcodes_append_prompt "${PIPES[@]}"
     __python_venv_append_prompt
     __git_append_prompt
+    __jobs_append_prompt
+
     __append_std_prompt
 }
